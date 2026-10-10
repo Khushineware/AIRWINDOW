@@ -1,0 +1,29 @@
+{
+  "_comment": "Assumptions for physiological ventilation rates, mask penetration factors, and temperature comfort penalties. All values flagged: VERIFY AND CITE before submission.",
+  "breathing_rate_lpm": {
+    "running": 40.0,
+    "walking": 20.0,
+    "cycling": 30.0,
+    "sports": 35.0,
+    "_citation_status": "TODO / VERIFY AND CITE before submission (Placeholder based on Adams 1993 / EPA Exposure Factors Handbook ventilation rates for moderate-to-heavy exercise)"
+  },
+  "mask_factor": 0.67,
+  "_mask_citation_status": "TODO / VERIFY AND CITE before submission (Placeholder assuming ~33% particle reduction for non-fit-tested consumer mask / 0.67 penetration factor)",
+  "heat_threshold_c": 35.0,
+  "heat_penalty_per_c": 0.02,
+  "_heat_citation_status": "TODO / VERIFY AND CITE before submission (Placeholder: 2% penalty per degree Celsius above 35 C wet-bulb/dry-bulb thermal comfort threshold)",
+  "profile_weight": {
+    "adult": 1.0,
+    "child": 1.2,
+    "sensitive": 1.5,
+    "_citation_status": "TODO / VERIFY AND CITE before submission (Placeholder multiplier applied strictly to exposure_score index, dose in ug remains physiological)"
+  },
+  "cpcb_breakpoints": [
+    {"category": "Good", "min": 0, "max": 30, "color": "#00B050"},
+    {"category": "Satisfactory", "min": 31, "max": 60, "color": "#92D050"},
+    {"category": "Moderate", "min": 61, "max": 90, "color": "#FFD400"},
+    {"category": "Poor", "min": 91, "max": 120, "color": "#FF9900"},
+    {"category": "Very Poor", "min": 121, "max": 250, "color": "#E8341C"},
+    {"category": "Severe", "min": 251, "max": 9999, "color": "#8B0000"}
+  ]
+}

@@ -1,0 +1,8 @@
+{
+  "name": "AirWindow",
+  "description": "Cleanest outdoor activity window planner for India with CAMS forecast and real-time station calibration.",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

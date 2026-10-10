@@ -1,0 +1,26 @@
+{
+  "stations": [
+    {
+      "name": "Rohini Sector 16 CPCB",
+      "distance_km": 3.4,
+      "last_reading": "2026-10-09T07:15:00Z",
+      "status": "LIVE"
+    },
+    {
+      "name": "Anand Vihar DPCC",
+      "distance_km": 18.2,
+      "last_reading": "2026-10-09T07:00:00Z",
+      "status": "LIVE"
+    },
+    {
+      "name": "Punjabi Bagh DPCC",
+      "distance_km": 12.1,
+      "last_reading": "2026-10-09T03:30:00Z",
+      "status": "STALE"
+    }
+  ],
+  "mae_raw": 34.2,
+  "mae_corrected": 16.8,
+  "pairs": 56,
+  "since": "2026-10-02"
+}

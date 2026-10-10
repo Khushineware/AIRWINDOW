@@ -1,0 +1,25 @@
+{
+  "answer": "The cleanest time for your 45-minute running session in Rohini is 1:30 – 2:15 PM, when PM2.5 levels result in an estimated dose of 52.4 µg. This yields 46% less particulate exposure compared to your usual time, while keeping temperature at 31.8°C.",
+  "tools_used": [
+    {
+      "name": "optimize_schedule",
+      "input": {"plan_id": "sample-delhi-001"},
+      "output": {
+        "best": {"label": "1:30 – 2:15 PM", "dose_ug": 52.4, "temp_c": 31.8, "reduction_pct": 46},
+        "baseline": {"label": "your usual time", "dose_ug": 97.2, "kind": "usual"}
+      }
+    },
+    {
+      "name": "get_station_status",
+      "input": {"lat": 28.71, "lon": 77.11},
+      "output": {
+        "station_count": 3,
+        "stations": [
+          {"name": "Rohini Sector 16 CPCB", "status": "LIVE", "distance_km": 3.4},
+          {"name": "Anand Vihar DPCC", "status": "LIVE", "distance_km": 18.2}
+        ]
+      }
+    }
+  ],
+  "explained_by": "ai"
+}

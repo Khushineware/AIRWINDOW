@@ -1,0 +1,26 @@
+[
+  {
+    "name": "Rohini",
+    "admin": "North West Delhi, Delhi",
+    "lat": 28.71,
+    "lon": 77.11
+  },
+  {
+    "name": "Connaught Place",
+    "admin": "New Delhi, Delhi",
+    "lat": 28.63,
+    "lon": 77.22
+  },
+  {
+    "name": "Bandra Kurla Complex",
+    "admin": "Mumbai, Maharashtra",
+    "lat": 19.06,
+    "lon": 72.86
+  },
+  {
+    "name": "Indiranagar",
+    "admin": "Bengaluru, Karnataka",
+    "lat": 12.97,
+    "lon": 77.64
+  }
+]

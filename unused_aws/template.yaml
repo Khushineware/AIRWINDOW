@@ -1,0 +1,171 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+  AirWindow: Cleanest outdoor activity window planner for India with CAMS forecast
+  and real-time station calibration.
+
+Parameters:
+  AllowedOrigin:
+    Type: String
+    Default: '*'
+    Description: Allowed CORS origin for web frontend (e.g. Amplify app URL).
+  BedrockModelId:
+    Type: String
+    Default: 'anthropic.claude-3-sonnet-20240229-v1:0'
+    Description: Amazon Bedrock Foundation Model ID for Strands explanation agent.
+  BedrockRegion:
+    Type: String
+    Default: 'us-east-1'
+    Description: AWS Region where Bedrock model inference is configured.
+  OpenAqApiKey:
+    Type: String
+    Default: ''
+    NoEcho: true
+    Description: Optional OpenAQ API Key for ground station queries.
+  DefaultLocations:
+    Type: String
+    Default: '[{"name": "Rohini, Delhi", "lat": 28.71, "lon": 77.11}]'
+    Description: JSON array of base monitoring locations for hourly ingestion.
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 29
+    MemorySize: 1024
+    Architectures:
+      - arm64
+    Tracing: Active
+    Environment:
+      Variables:
+        DYNAMODB_TABLE_NAME: !Ref AirWindowTable
+        SNAPSHOT_BUCKET_NAME: !Ref SnapshotBucket
+        ALLOWED_ORIGIN: !Ref AllowedOrigin
+        BEDROCK_MODEL_ID: !Ref BedrockModelId
+        BEDROCK_REGION: !Ref BedrockRegion
+        OPENAQ_API_KEY: !Ref OpenAqApiKey
+        DEFAULT_LOCATIONS: !Ref DefaultLocations
+
+Resources:
+  # HTTP API Gateway with CORS and Throttling
+  HttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins:
+          - !Ref AllowedOrigin
+        AllowMethods:
+          - GET
+          - POST
+          - OPTIONS
+        AllowHeaders:
+          - Content-Type
+          - Authorization
+        MaxAge: 600
+      DefaultRouteSettings:
+        ThrottlingBurstLimit: 20
+        ThrottlingRateLimit: 10
+
+  # API Lambda Function (handles all user requests)
+  ApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/src
+      Handler: handlers.api.handler
+      Description: AirWindow main HTTP API router and optimization engine
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AirWindowTable
+        - S3ReadPolicy:
+            BucketName: !Ref SnapshotBucket
+        # Scoped least-privilege Bedrock invoke policy
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+              Resource: !Sub 'arn:aws:bedrock:${BedrockRegion}::foundation-model/${BedrockModelId}'
+      Events:
+        RootApi:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /{proxy+}
+            Method: ANY
+        RootExact:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref HttpApi
+            Path: /
+            Method: ANY
+
+  # Hourly Scheduled Ingestion Function
+  IngestFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: backend/src
+      Handler: handlers.ingest.handler
+      Description: Hourly CAMS and OpenAQ ingestion and forecast logging
+      Timeout: 60
+      MemorySize: 512
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AirWindowTable
+        - S3CrudPolicy:
+            BucketName: !Ref SnapshotBucket
+      Events:
+        HourlySchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: 'rate(1 hour)'
+            Description: Hourly forecast snapshot and lead-12 log verification
+
+  # Single-table DynamoDB Storage
+  AirWindowTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AirWindowTable
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: PK
+          AttributeType: S
+        - AttributeName: SK
+          AttributeType: S
+      KeySchema:
+        - AttributeName: PK
+          KeyType: HASH
+        - AttributeName: SK
+          KeyType: RANGE
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+
+  # Private Raw Snapshots S3 Bucket
+  SnapshotBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: ExpireRawSnapshotsAfter7Days
+            Status: Enabled
+            ExpirationInDays: 7
+
+Outputs:
+  ApiUrl:
+    Description: HTTP API Gateway endpoint base URL
+    Value: !Sub 'https://${HttpApi}.execute-api.${AWS::Region}.amazonaws.com'
+  DynamoDbTableName:
+    Description: DynamoDB Table name
+    Value: !Ref AirWindowTable
+  SnapshotBucketName:
+    Description: S3 Raw Snapshots bucket name
+    Value: !Ref SnapshotBucket
