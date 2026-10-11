@@ -312,29 +312,6 @@ AirWindow runs as two independently deployed services, and every push to `main` 
 
 ---
 
-## 🛣️ Roadmap
-
-- [ ] Hindi and regional-language support
-- [ ] Push notifications for the next clean window
-- [ ] Weekly planner for training schedules
-- [ ] PM10, ozone and NO₂ alongside PM2.5
-- [ ] Forecast accuracy dashboard
-- [ ] Installable PWA for mobile
-- [ ] More Strands tools: health-condition profiles and route-level air quality
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome.
-
-1. Fork the repo
-2. Create a branch: `git checkout -b feature/your-feature`
-3. Commit your changes: `git commit -m "Add your feature"`
-4. Push: `git push origin feature/your-feature`
-5. Open a Pull Request
-
----
 
 ## 🏆 Built for the Hackathon
 
@@ -359,7 +336,7 @@ AirWindow was created for the **[WeMakeDevs × AWS Environmental Hacks 2026](htt
 
 ---
 
-## 🙏 Acknowledgements
+##  Acknowledgements
 
 - **[WeMakeDevs](https://wemakedevs.org)** and **AWS** for organising Environmental Hacks 2026
 - **[AWS Strands Agents SDK](https://strandsagents.com)** for agent orchestration, tools and lifecycle hooks
