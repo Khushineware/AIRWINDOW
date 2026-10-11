@@ -372,7 +372,7 @@ AirWindow was created for the **[WeMakeDevs × AWS Environmental Hacks 2026](htt
 ## 👤 Author
 
 **Your Name**
-[GitHub](https://github.com/Khushineware) · [LinkedIn](www.linkedin.com/in/khushi-neware-373937319)
+   [GitHub](https://github.com/Khushineware) · [LinkedIn](https://www.linkedin.com/in/khushi-neware-373937319)
 
 ---
 
