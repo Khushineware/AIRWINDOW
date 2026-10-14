@@ -54,26 +54,38 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
   }
 
   const url = `${API_BASE_URL}${endpoint}`;
-  const response = await fetch(url, {
-    ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.headers || {}),
-    },
-  });
+  try {
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.headers || {}),
+      },
+    });
 
-  const data = await response.json().catch(() => ({}));
-  if (!response.ok) {
-    const err = data.error || {};
-    throw new ApiError(
-      err.code || 'HTTP_ERROR',
-      err.message || `Request failed with status ${response.status}`,
-      response.status,
-      Boolean(err.retryable)
-    );
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const err = data.error || {};
+      const message = err.message || (typeof data.detail === 'string' ? data.detail : null) || `Request failed with status ${response.status}`;
+      throw new ApiError(
+        err.code || 'HTTP_ERROR',
+        message,
+        response.status,
+        Boolean(err.retryable)
+      );
+    }
+
+    return data as T;
+  } catch (err: any) {
+    if (err instanceof ApiError) {
+      throw err;
+    }
+    const rawMsg = err?.message || '';
+    const message = (rawMsg === 'Failed to fetch' || rawMsg.includes('Failed to fetch'))
+      ? 'Live air data is busy, please try again in a moment'
+      : (rawMsg || 'Live air data is busy, please try again in a moment');
+    throw new ApiError('NETWORK_ERROR', message, 503, true);
   }
-
-  return data as T;
 }
 
 export async function getLocations(query: string): Promise<LocationItem[]> {

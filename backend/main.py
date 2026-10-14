@@ -1,15 +1,21 @@
 """AirWindow FastAPI Backend Server."""
 from __future__ import annotations
+import copy
+import json
 import os
 import sys
 import uuid
 import logging
+import threading
+import time
+import urllib.error
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime, timezone
 
 from fastapi import FastAPI, HTTPException, Query, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 from dotenv import load_dotenv
 
@@ -30,7 +36,7 @@ from src.services.open_meteo import (
     fetch_aligned_forecast,
     is_within_india,
 )
-from src.services.openaq import fetch_nearby_stations
+from src.services.openaq import fetch_nearby_stations, haversine_distance_km
 from src.agent.agent import ask_agent
 
 logger = logging.getLogger("airwindow")
@@ -40,9 +46,16 @@ app = FastAPI(title="AirWindow API", version="1.0.0")
 
 # --- CORS Configuration ---
 raw_origins = os.environ.get("ALLOWED_ORIGINS", "")
-allowed_origins = [o.strip() for o in raw_origins.split(",") if o.strip()]
-if "http://localhost:5173" not in allowed_origins:
-    allowed_origins.append("http://localhost:5173")
+allowed_origins = [o.strip().rstrip("/") for o in raw_origins.split(",") if o.strip()]
+default_origins = [
+    "https://airwindow-live.vercel.app",
+    "http://localhost:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:5173",
+]
+for origin in default_origins:
+    if origin not in allowed_origins:
+        allowed_origins.append(origin)
 
 app.add_middleware(
     CORSMiddleware,
@@ -52,6 +65,97 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+
+def _get_cors_headers_for_request(request: Request) -> Dict[str, str]:
+    """Helper to return appropriate CORS headers for exception responses."""
+    origin = request.headers.get("origin")
+    headers: Dict[str, str] = {}
+    if origin and (origin in allowed_origins or "*" in allowed_origins):
+        headers["Access-Control-Allow-Origin"] = origin
+        headers["Access-Control-Allow-Credentials"] = "true"
+        headers["Access-Control-Allow-Methods"] = "*"
+        headers["Access-Control-Allow-Headers"] = "*"
+    else:
+        headers["Access-Control-Allow-Origin"] = "*"
+    return headers
+
+
+# --- Global Exception Handlers to ensure CORS headers on all error responses ---
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(request: Request, exc: HTTPException):
+    headers = _get_cors_headers_for_request(request)
+    if exc.headers:
+        headers.update(exc.headers)
+
+    detail = exc.detail
+    if isinstance(detail, str):
+        content = {
+            "detail": detail,
+            "error": {"code": f"HTTP_{exc.status_code}", "message": detail},
+        }
+    elif isinstance(detail, dict):
+        content = dict(detail)
+        if "detail" not in content and "message" in content.get("error", {}):
+            content["detail"] = content["error"]["message"]
+    else:
+        content = {"detail": str(detail)}
+
+    return JSONResponse(
+        status_code=exc.status_code,
+        content=content,
+        headers=headers,
+    )
+
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Global unhandled error on {request.method} {request.url.path}: {exc}", exc_info=True)
+    print(f"[AirWindow Error] Unhandled exception on {request.method} {request.url.path}: {exc}")
+
+    headers = _get_cors_headers_for_request(request)
+    return JSONResponse(
+        status_code=503,
+        content={
+            "detail": "Air data temporarily unavailable. Please retry in a minute.",
+            "error": {
+                "code": "SERVICE_UNAVAILABLE",
+                "message": "Air data temporarily unavailable. Please retry in a minute.",
+            },
+        },
+        headers=headers,
+    )
+
+
+# --- Background Warm-Up ---
+WARMUP_CITIES = [
+    {"name": "Nagpur", "lat": 21.1458, "lon": 79.0882},
+    {"name": "Mumbai", "lat": 19.0760, "lon": 72.8777},
+    {"name": "Bengaluru", "lat": 12.9716, "lon": 77.5946},
+    {"name": "Delhi", "lat": 28.6139, "lon": 77.2090},
+    {"name": "Kolkata", "lat": 22.5726, "lon": 88.3639},
+    {"name": "Hyderabad", "lat": 17.3850, "lon": 78.4867},
+]
+
+
+def _warmup_worker():
+    """Gentle background warm-up: fetch 6 major cities with 5s gap to pre-populate cache."""
+    logger.info("[AirWindow Warmup] Starting background cache warm-up...")
+    for city in WARMUP_CITIES:
+        try:
+            fetch_aligned_forecast(city["lat"], city["lon"])
+            logger.info(f"[AirWindow Warmup] Pre-warmed cache for {city['name']} ({city['lat']}, {city['lon']})")
+        except Exception as e:
+            logger.warning(f"[AirWindow Warmup] Warm-up fetch failed for {city['name']}: {e}")
+        time.sleep(5)
+    logger.info("[AirWindow Warmup] Background cache warm-up completed.")
+
+
+@app.on_event("startup")
+def start_background_warmup():
+    warmup_thread = threading.Thread(target=_warmup_worker, daemon=True)
+    warmup_thread.start()
+
+
 # In-memory storage for generated plans
 PLANS_STORE: Dict[str, Dict[str, Any]] = {}
 
@@ -60,7 +164,7 @@ PLANS_STORE: Dict[str, Dict[str, Any]] = {}
 @app.get("/health")
 @app.get("/api/health")
 def health_check():
-    """Health check endpoint returning HTTP 200 without calling Gemini."""
+    """Health check endpoint returning HTTP 200 instantly without calling external services."""
     return {"status": "ok"}
 
 
